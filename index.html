@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HL7 v2 Message Interpreter</title>
+<style>
+:root{--bg:#f6f8fa;--card:#fff;--ink:#1d2733;--mute:#5b6876;--line:#dde3ea;--accent:#0b6e8a;--warn:#9a6700;--warnbg:#fff8c5;--crit:#b42318;--critbg:#fee4e2;--lowbg:#e0f0ff;--low:#0b4f8a;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+@media (prefers-color-scheme:dark){:root{--bg:#10161d;--card:#18212b;--ink:#e6edf3;--mute:#9aa8b6;--line:#2b3744;--accent:#4cc2e0;--warn:#e3b341;--warnbg:#3a2f0b;--crit:#ff8b80;--critbg:#431a17;--lowbg:#12304d;--low:#79b8ff}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header,main{max-width:1100px;margin:0 auto;padding:0 16px}
+header{padding-top:28px}
+h1{font-size:1.5rem;margin:0 0 4px}
+header p{margin:0;color:var(--mute)}
+main{padding-block:20px 48px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:20px}
+@media(max-width:820px){main{grid-template-columns:minmax(0,1fr)}}
+h2{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin:0 0 8px}
+textarea{width:100%;min-height:300px;font:13px/1.5 var(--mono);padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);resize:vertical}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+button{font:inherit;font-size:.85rem;padding:6px 12px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--accent);color:var(--accent)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:12px}
+.card h3{margin:0 0 6px;font-size:1rem}
+.kv{display:grid;grid-template-columns:130px minmax(0,1fr);gap:2px 12px;font-size:.92rem}
+.kv span:nth-child(odd){color:var(--mute)}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--mute);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.05em}
+td.num,th.num{font-variant-numeric:tabular-nums}
+.tag{display:inline-block;padding:1px 8px;border-radius:99px;font-size:.78rem;font-weight:600}
+.HH,.LL,.AA{background:var(--critbg);color:var(--crit)}
+.H,.A,.L{background:var(--lowbg);color:var(--low)}
+.warn{background:var(--warnbg);color:var(--warn);border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:.9rem}
+.crit{background:var(--critbg);color:var(--crit);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-weight:600}
+.tablewrap{overflow-x:auto}
+.mono{font-family:var(--mono);font-size:.82rem;word-break:break-all}
+footer{max-width:1100px;margin:0 auto;padding:0 16px 32px;color:var(--mute);font-size:.82rem}
+</style>
+</head>
+<body>
+<header>
+  <h1>HL7 v2 Message Interpreter</h1>
+  <p>Paste a raw HL7 v2 message to see patient, encounter, orders and results in plain language. Runs entirely in your browser; nothing is uploaded.</p>
+</header>
+<main>
+  <section>
+    <h2>Raw message</h2>
+    <div class="btns">
+      <button data-sample="oru">Lab result (ORU)</button>
+      <button data-sample="adt">Admission (ADT)</button>
+      <button data-sample="orm">Order (ORM)</button>
+      <button data-sample="bad">Broken message</button>
+    </div>
+    <textarea id="input" spellcheck="false" aria-label="HL7 v2 message"></textarea>
+    <p style="color:var(--mute);font-size:.82rem">Sample data is fake. Do not paste real patient data into any website.</p>
+  </section>
+  <section id="out" aria-live="polite"></section>
+</main>
+<footer>Python version with tests and JSON output: <span class="mono">hl7_parser.py</span> in the same repository.</footer>
+
+<script id="core">
+const SEX={M:"Male",F:"Female",O:"Other",U:"Unknown",A:"Ambiguous",N:"Not applicable"};
+const CLASS={I:"Inpatient",O:"Outpatient",E:"Emergency",P:"Pre-admission",R:"Recurring patient",B:"Obstetrics"};
+const FLAG={N:"Normal",L:"Low",H:"High",LL:"Critically low",HH:"Critically high",A:"Abnormal",AA:"Critically abnormal"};
+const STATUS={F:"Final",P:"Preliminary",C:"Corrected",X:"Cannot be obtained",I:"Pending"};
+const EVENTS={"ADT^A01":"Admit a patient","ADT^A03":"Discharge a patient","ADT^A04":"Register a patient","ADT^A08":"Update patient information","ORM^O01":"General order","ORU^R01":"Unsolicited observation result"};
+const SEV={SV:"Severe",MO:"Moderate",MI:"Mild"};
+
+function parseMessage(text){
+  const lines=text.trim().split(/\r\n|\r|\n/).filter(l=>l.trim());
+  if(!lines.length||!lines[0].startsWith("MSH")||lines[0].length<8) throw new Error("Not an HL7 v2 message: it must start with an MSH segment.");
+  const f=lines[0][3], chars=lines[0].split(f)[1];
+  if(chars.length<4) throw new Error("MSH-2 (encoding characters) is incomplete.");
+  const enc={f,c:chars[0],r:chars[1],e:chars[2],s:chars[3]};
+  return {enc,segs:lines.map(l=>({name:l.split(f)[0],parts:l.split(f)}))};
+}
+function unesc(t,enc){
+  const m={F:enc.f,S:enc.c,T:enc.s,R:enc.r,E:enc.e}, e=enc.e.replace(/[\\^$*+?.()|[\]{}]/g,"\\$&");
+  return t.replace(new RegExp(e+"\\.br"+e,"g"),"\n").replace(new RegExp(e+"([FSTRE])"+e,"g"),(_,k)=>m[k]);
+}
+function fld(seg,n){const i=seg.name==="MSH"?n-1:n;return seg.parts[i]||"";}
+function comp(msg,seg,n,c,rep=0){
+  const reps=fld(seg,n).split(msg.enc.r); if(rep>=reps.length) return "";
+  const p=reps[rep].split(msg.enc.c); return unesc((p[c-1]||"").trim(),msg.enc);
+}
+function nreps(seg,n,msg){const v=fld(seg,n);return v?v.split(msg.enc.r).filter(Boolean).length:0;}
+function ts(v){
+  const m=/^(\d{4})(\d{2})?(\d{2})?(\d{2})?(\d{2})?/.exec((v||"").trim()); if(!m) return v||"";
+  const [,y,mo,d,h,mi]=m; if(!mo) return y;
+  const dt=new Date(+y,+mo-1,+(d||1)); if(dt.getMonth()!==+mo-1||(d&&dt.getDate()!==+d)) return v+" (invalid date)";
+  const mon=dt.toLocaleString("en-GB",{month:"short"});
+  if(!d) return mon+" "+y;
+  return `${String(+d).padStart(2,"0")} ${mon} ${y}`+(h?`, ${h}:${mi||"00"}`:"");
+}
+function validDate(v){const m=/^(\d{4})(\d{2})(\d{2})/.exec(v||"");if(!m)return null;const d=new Date(+m[1],+m[2]-1,+m[3]);return d.getMonth()===+m[2]-1&&d.getDate()===+m[3]?d:null;}
+function pname(msg,seg,n,rep=0){
+  const fam=comp(msg,seg,n,1,rep).split(msg.enc.s)[0];
+  return [comp(msg,seg,n,5,rep),comp(msg,seg,n,2,rep),comp(msg,seg,n,3,rep),fam].filter(Boolean).join(" ");
+}
+function interpret(msg){
+  const first=n=>msg.segs.find(s=>s.name===n), all=n=>msg.segs.filter(s=>s.name===n);
+  const msh=first("MSH"), warnings=[];
+  const type=comp(msg,msh,9,1)+(comp(msg,msh,9,2)?"^"+comp(msg,msh,9,2):"");
+  const out={message:{type,desc:EVENTS[type]||"",id:fld(msh,10),version:comp(msg,msh,12,1),sent:ts(fld(msh,7)),
+    from:[comp(msg,msh,3,1),comp(msg,msh,4,1)].filter(Boolean).join(" @ "),to:[comp(msg,msh,5,1),comp(msg,msh,6,1)].filter(Boolean).join(" @ ")},warnings};
+  if(!fld(msh,10)) warnings.push("MSH-10 Message Control ID is empty (acknowledgements cannot be matched).");
+  if(!comp(msg,msh,12,1)) warnings.push("MSH-12 Version is empty.");
+  const pid=first("PID");
+  if(pid){
+    const ids=[]; for(let i=0;i<nreps(pid,3,msg);i++) ids.push({id:comp(msg,pid,3,1,i),auth:comp(msg,pid,3,4,i),type:comp(msg,pid,3,5,i)});
+    const sent=validDate(fld(msh,7))||new Date(), dob=validDate(fld(pid,7)); let age=null;
+    if(dob){age=sent.getFullYear()-dob.getFullYear()-((sent.getMonth()<dob.getMonth()||(sent.getMonth()===dob.getMonth()&&sent.getDate()<dob.getDate()))?1:0);if(age<0){warnings.push("PID-7 Date of Birth is after the message date.");age=null;}}
+    else if(fld(pid,7)) warnings.push(`PID-7 Date of Birth '${fld(pid,7)}' is not a valid date.`);
+    const sx=comp(msg,pid,8,1); if(sx&&!SEX[sx]) warnings.push(`PID-8 '${sx}' is not a standard administrative-sex code.`);
+    if(!ids.length) warnings.push("PID-3 Patient Identifier is empty.");
+    const aliases=[]; for(let i=1;i<nreps(pid,5,msg);i++) aliases.push(pname(msg,pid,5,i));
+    out.patient={ids,name:pname(msg,pid,5),dob:ts(fld(pid,7)),age,sex:SEX[sx]||sx,aliases,
+      address:[1,3,4,5,6].map(c=>comp(msg,pid,11,c)).filter(Boolean).join(", "),phone:comp(msg,pid,13,1)};
+  } else warnings.push("No PID segment: demographics unavailable.");
+  const pv1=first("PV1");
+  if(pv1){
+    const cls=comp(msg,pv1,2,1); if(cls&&!CLASS[cls]) warnings.push(`PV1-2 '${cls}' is not a recognised patient class.`);
+    out.encounter={cls:CLASS[cls]||cls,loc:[1,2,3].map(c=>comp(msg,pv1,3,c)).filter(Boolean).join(" / "),
+      doc:[comp(msg,pv1,7,6),comp(msg,pv1,7,3),comp(msg,pv1,7,2)].filter(Boolean).join(" "),visit:comp(msg,pv1,19,1),
+      admit:ts(fld(pv1,44)),disch:ts(fld(pv1,45))};
+  }
+  out.allergies=all("AL1").map(s=>({what:comp(msg,s,3,2)||comp(msg,s,3,1),sev:SEV[comp(msg,s,4,1)]||comp(msg,s,4,1),rx:comp(msg,s,5,1)}));
+  out.diagnoses=all("DG1").map(s=>({code:comp(msg,s,3,1),text:comp(msg,s,4,1)||comp(msg,s,3,2)}));
+  const orders=[]; let cur=null;
+  for(const s of msg.segs){
+    if(s.name==="OBR"){cur={service:comp(msg,s,4,2)||comp(msg,s,4,1),at:ts(fld(s,7)),status:STATUS[comp(msg,s,25,1)]||comp(msg,s,25,1),obs:[]};orders.push(cur);}
+    else if(s.name==="OBX"){
+      if(!cur){cur={service:"(no OBR segment)",at:"",status:"",obs:[]};orders.push(cur);warnings.push("OBX segment found without a preceding OBR.");}
+      const vt=comp(msg,s,2,1); let value=["CE","CWE"].includes(vt)?(comp(msg,s,5,2)||comp(msg,s,5,1)):unesc(fld(s,5),msg.enc);
+      if(vt==="NM"&&value&&!/^[+-]?\d*\.?\d+$/.test(value)) warnings.push(`OBX-5 '${value}' is not numeric but OBX-2 says NM.`);
+      const fl=comp(msg,s,8,1);
+      cur.obs.push({test:comp(msg,s,3,2)||comp(msg,s,3,1),value,units:comp(msg,s,6,2)||comp(msg,s,6,1),ref:fld(s,7),flag:fl,meaning:FLAG[fl]||fl});
+    }
+  }
+  out.orders=orders; return out;
+}
+if(typeof module!=="undefined") module.exports={parseMessage,interpret,ts};
+</script>
+
+<script id="ui">
+if(typeof document!=="undefined"){
+const SAMPLES={
+oru:["MSH|^~\\&|LAB|DEMO_HOSP|EHR|DEMO_HOSP|202610040815||ORU^R01^ORU_R01|MSG002|P|2.5.1",
+"PID|1||10001^^^DEMO_HOSP^MR||Doe^Jane^Marie^^^^L~Doe^Janie||19900214|F|||12 Palm St^^Buraydah^QS^51452^SA||0500000000",
+"PV1|1|I|ICU^Room 3^Bed 2||||1234^Smith^Alan^^^Dr||||||||||||V9001^^^DEMO_HOSP",
+"OBR|1|PL123|FL456|BMP^Basic metabolic panel^L|||202610040730",
+"OBX|1|NM|2951-2^Sodium^LN||128|mmol/L|135-145|L|||F",
+"OBX|2|NM|2823-3^Potassium^LN||6.8|mmol/L|3.5-5.0|HH|||F",
+"OBX|3|NM|2345-7^Glucose^LN||5.1|mmol/L|3.9-5.5|N|||F",
+"OBX|4|TX|NOTE^Comment^L||Sample slightly haemolysed\\.br\\repeat advised|||||||F"],
+adt:["MSH|^~\\&|HIS|DEMO_HOSP|REG|DEMO_HOSP|202610040800||ADT^A01^ADT_A01|MSG001|P|2.5.1",
+"PID|1||10001^^^DEMO_HOSP^MR||Doe^Jane^Marie^^^^L||19900214|F|||12 Palm St^^Buraydah^QS^51452^SA",
+"PV1|1|I|ICU^Room 3^Bed 2||||1234^Smith^Alan^^^Dr||||||||||||V9001^^^DEMO_HOSP",
+"AL1|1||^Penicillin|SV|Rash","DG1|1||I21.9^Acute myocardial infarction"],
+orm:["MSH|^~\\&|EHR|DEMO_HOSP|LAB|DEMO_HOSP|202610040815||ORM^O01^ORM_O01|MSG003|P|2.5.1",
+"PID|1||10001^^^DEMO_HOSP^MR||Doe^Jane||19900214|F","PV1|1|O|Clinic 2^Room 4",
+"ORC|NW|PL124||IP","OBR|1|PL124||CBC^Complete blood count^L|||202610041000"],
+bad:["MSH|^~\\&|LAB|DEMO_HOSP|EHR|DEMO_HOSP|20261004||ORU^R01|||2.5.1",
+"PID|1||||Poe^Sam||19900231|X","OBX|1|NM|GLU^Glucose||high|mmol/L"]};
+const $=id=>document.getElementById(id), input=$("input"), out=$("out");
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const kv=rows=>'<div class="kv">'+rows.filter(r=>r[1]!==""&&r[1]!=null).map(r=>`<span>${esc(r[0])}</span><span>${esc(r[1])}</span>`).join("")+"</div>";
+function render(){
+  let msg; try{msg=parseMessage(input.value);}catch(e){out.innerHTML=`<div class="warn">${esc(e.message)}</div>`;return;}
+  const r=interpret(msg), m=r.message; let h="";
+  const crit=r.orders.flatMap(o=>o.obs).filter(o=>["LL","HH","AA"].includes(o.flag));
+  if(crit.length) h+=`<div class="crit">Critical results: ${crit.map(o=>esc(o.test+" "+o.value+" "+o.units)).join("; ")}</div>`;
+  h+=`<div class="card"><h3>Message</h3>${kv([["Type",m.type+(m.desc?" – "+m.desc:"")],["Control ID",m.id||"-"],["HL7 version",m.version],["Sent",m.sent],["From",m.from],["To",m.to]])}</div>`;
+  if(r.patient){const p=r.patient;h+=`<div class="card"><h3>Patient</h3>${kv([["Name",p.name],["Also known as",p.aliases.join(", ")],["Sex",p.sex],["Born",p.dob+(p.age!=null?` (age ${p.age})`:"")],["Identifiers",p.ids.map(i=>i.id+(i.type?" ("+i.type+")":"")+(i.auth?" at "+i.auth:"")).join("; ")],["Address",p.address],["Phone",p.phone]])}</div>`;}
+  if(r.encounter){const e=r.encounter;h+=`<div class="card"><h3>Encounter</h3>${kv([["Class",e.cls],["Location",e.loc],["Attending",e.doc],["Visit number",e.visit],["Admitted",e.admit],["Discharged",e.disch]])}</div>`;}
+  if(r.allergies.length) h+=`<div class="card"><h3>Allergies</h3>${r.allergies.map(a=>esc(a.what+" – "+a.sev+(a.rx?" – "+a.rx:""))).join("<br>")}</div>`;
+  if(r.diagnoses.length) h+=`<div class="card"><h3>Diagnoses</h3>${r.diagnoses.map(d=>esc(d.code+" "+d.text)).join("<br>")}</div>`;
+  for(const o of r.orders){
+    h+=`<div class="card"><h3>${esc(o.service)} <span style="color:var(--mute);font-weight:400;font-size:.85rem">${esc([o.status,o.at].filter(Boolean).join(" · "))}</span></h3>`;
+    if(o.obs.length) h+=`<div class="tablewrap"><table><tr><th>Test</th><th class="num">Value</th><th>Reference</th><th>Flag</th></tr>${o.obs.map(b=>`<tr><td>${esc(b.test)}</td><td class="num">${esc(b.value).replace(/\n/g,"<br>")} ${esc(b.units)}</td><td>${esc(b.ref)}</td><td>${b.flag&&b.flag!=="N"?`<span class="tag ${esc(b.flag)}">${esc(b.meaning)}</span>`:""}</td></tr>`).join("")}</table></div>`;
+    h+="</div>";
+  }
+  if(r.warnings.length) h+=`<h2>Warnings</h2>`+r.warnings.map(w=>`<div class="warn">${esc(w)}</div>`).join("");
+  out.innerHTML=h;
+}
+document.querySelectorAll("[data-sample]").forEach(b=>b.addEventListener("click",()=>{input.value=SAMPLES[b.dataset.sample].join("\n");render();}));
+input.addEventListener("input",render);
+input.value=SAMPLES.oru.join("\n"); render();
+}
+</script>
+</body>
+</html>
