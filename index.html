@@ -3,61 +3,77 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>HL7 v2 Message Interpreter</title>
+<title>HL7 Message Reader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap">
 <style>
-:root{--bg:#f6f8fa;--card:#fff;--ink:#1d2733;--mute:#5b6876;--line:#dde3ea;--accent:#0b6e8a;--warn:#9a6700;--warnbg:#fff8c5;--crit:#b42318;--critbg:#fee4e2;--lowbg:#e0f0ff;--low:#0b4f8a;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-@media (prefers-color-scheme:dark){:root{--bg:#10161d;--card:#18212b;--ink:#e6edf3;--mute:#9aa8b6;--line:#2b3744;--accent:#4cc2e0;--warn:#e3b341;--warnbg:#3a2f0b;--crit:#ff8b80;--critbg:#431a17;--lowbg:#12304d;--low:#79b8ff}}
+:root{--bg:#f6f4ff;--card:#fff;--ink:#3f3f4f;--head:#5b4fa0;--lab:#6455a3;--mute:#7c7a8c;--line:#e8e4f4;--row:#f9f9fb;
+--g1:#a5b8f3;--g2:#7f6fe0;--red:#e74c3c;--okbg:#f0fbf3;--ok:#1f8a3f;--okbar:#4cae6a;--wbg:#fff6dc;--w:#8a5a00;--cbg:#ffe4e1;--c:#b3261e;--lowbg:#e3efff;--low:#1d4f91}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-header,main{max-width:1100px;margin:0 auto;padding:0 16px}
-header{padding-top:28px}
-h1{font-size:1.5rem;margin:0 0 4px}
-header p{margin:0;color:var(--mute)}
-main{padding-block:20px 48px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:20px}
-@media(max-width:820px){main{grid-template-columns:minmax(0,1fr)}}
-h2{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin:0 0 8px}
-textarea{width:100%;min-height:300px;font:13px/1.5 var(--mono);padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);resize:vertical}
-.btns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-button{font:inherit;font-size:.85rem;padding:6px 12px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
-button:hover{border-color:var(--accent);color:var(--accent)}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:12px}
-.card h3{margin:0 0 6px;font-size:1rem}
-.kv{display:grid;grid-template-columns:130px minmax(0,1fr);gap:2px 12px;font-size:.92rem}
-.kv span:nth-child(odd){color:var(--mute)}
-table{width:100%;border-collapse:collapse;font-size:.9rem}
-th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
-th{color:var(--mute);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.05em}
-td.num,th.num{font-variant-numeric:tabular-nums}
-.tag{display:inline-block;padding:1px 8px;border-radius:99px;font-size:.78rem;font-weight:600}
-.HH,.LL,.AA{background:var(--critbg);color:var(--crit)}
-.H,.A,.L{background:var(--lowbg);color:var(--low)}
-.warn{background:var(--warnbg);color:var(--warn);border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:.9rem}
-.crit{background:var(--critbg);color:var(--crit);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-weight:600}
-.tablewrap{overflow-x:auto}
-.mono{font-family:var(--mono);font-size:.82rem;word-break:break-all}
-footer{max-width:1100px;margin:0 auto;padding:0 16px 32px;color:var(--mute);font-size:.82rem}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.55 Poppins,"Segoe UI",Calibri,Arial,sans-serif;min-height:100vh;position:relative;overflow-x:hidden}
+.dot{position:fixed;border-radius:50%;z-index:0;pointer-events:none}
+.d1{width:120px;height:120px;background:#e9f1ff;top:38%;left:-60px}
+.d2{width:110px;height:110px;background:#fbf4de;top:22%;right:-40px}
+.d3{width:150px;height:150px;background:#e9f6ee;bottom:6%;right:-50px}
+.d4{width:80px;height:80px;background:#e9f1ff;bottom:18%;left:8%}
+main{position:relative;z-index:1;max-width:900px;margin:0 auto;padding:16px 16px 12px}
+.card{background:var(--card);border-radius:22px;padding:34px 36px 38px;box-shadow:0 12px 36px rgba(100,85,163,.13)}
+@media(max-width:560px){.card{padding:24px 16px 28px}}
+h1{color:var(--head);font-size:2rem;font-weight:700;text-align:center;margin:6px 0 8px}
+.sub{text-align:center;color:var(--mute);margin:0 0 26px}
+h2{color:var(--head);font-size:1.12rem;font-weight:600;margin:28px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--line)}
+label{display:block;font-weight:600;font-size:.88rem;margin:18px 0 8px}
+input[type=file],textarea{width:100%;border:1px solid #dcd8ea;border-radius:14px;background:#fff;color:var(--ink);padding:12px 14px;font:inherit}
+textarea{min-height:230px;font:12.5px/1.5 Consolas,"Courier New",monospace;resize:vertical}
+input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--g2);outline-offset:2px}
+.btns{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:28px}
+.btn{border:0;border-radius:99px;color:#fff;font:600 .88rem/1 Poppins,"Segoe UI",Arial,sans-serif;padding:15px 32px;cursor:pointer;transition:transform .12s,filter .12s}
+.btn:hover{transform:translateY(-1px);filter:brightness(.97)}
+.btn.go{background:linear-gradient(90deg,var(--g1),var(--g2));box-shadow:0 8px 18px rgba(127,111,224,.35)}
+.btn.clr{background:var(--red);box-shadow:0 8px 18px rgba(231,76,60,.3)}
+.samples{font-size:.78rem;color:var(--mute);margin:10px 2px 0}
+.samples button{background:none;border:0;padding:0 2px;font:inherit;color:var(--lab);text-decoration:underline;cursor:pointer}
+.samples button:hover{color:var(--g2)}
+table{width:100%;border-collapse:collapse;font-size:.84rem;margin-top:4px}
+th{background:var(--lab);color:#fff;font-weight:600;font-size:.8rem;padding:9px 12px;text-align:left}
+td{padding:9px 12px;border-bottom:1px solid #f0eef6;background:var(--row);vertical-align:top;overflow-wrap:anywhere}
+table.kv th{width:34%;text-align:center;border-bottom:1px solid rgba(255,255,255,.18)}
+.scroll{overflow-x:auto}
+.scroll table:not(.kv){min-width:440px}
+.tag{white-space:nowrap}
+.tag{display:inline-block;padding:0 9px;margin-left:6px;border-radius:99px;font-size:.72rem;font-weight:600;background:var(--lowbg);color:var(--low)}
+.tag.HH,.tag.LL,.tag.AA{background:var(--cbg);color:var(--c)}
+.crit{background:var(--cbg);color:var(--c);border-radius:14px;padding:12px 16px;margin-top:24px;font-weight:600;font-size:.88rem}
+.valid{background:var(--okbg);border-left:4px solid var(--okbar);border-radius:10px;padding:10px 16px;margin:0;list-style:none;font-weight:600;font-size:.85rem}
+.valid li{color:var(--ok);padding:2px 0}
+.valid li.w{color:var(--w)}
+.valid li.bad{color:var(--c)}
+.valid.hasw{background:var(--wbg);border-left-color:#e3b341}
+.err{background:var(--cbg);color:var(--c);border-radius:12px;padding:10px 14px;margin-top:20px;font-weight:500}
+.note{font-size:.76rem;color:var(--mute);margin-top:14px;text-align:center}
+.foot{text-align:center;color:var(--mute);font-size:.76rem;padding:6px 16px 28px;position:relative;z-index:1}
+.foot b{color:var(--lab);font-weight:600}
+[hidden]{display:none!important}
 </style>
 </head>
 <body>
-<header>
-  <h1>HL7 v2 Message Interpreter</h1>
-  <p>Paste a raw HL7 v2 message to see patient, encounter, orders and results in plain language. Runs entirely in your browser; nothing is uploaded.</p>
-</header>
+<span class="dot d1"></span><span class="dot d2"></span><span class="dot d3"></span><span class="dot d4"></span>
 <main>
-  <section>
-    <h2>Raw message</h2>
-    <div class="btns">
-      <button data-sample="oru">Lab result (ORU)</button>
-      <button data-sample="adt">Admission (ADT)</button>
-      <button data-sample="orm">Order (ORM)</button>
-      <button data-sample="bad">Broken message</button>
-    </div>
-    <textarea id="input" spellcheck="false" aria-label="HL7 v2 message"></textarea>
-    <p style="color:var(--mute);font-size:.82rem">Sample data is fake. Do not paste real patient data into any website.</p>
-  </section>
-  <section id="out" aria-live="polite"></section>
+ <div class="card">
+  <h1>HL7 Message Reader</h1>
+  <p class="sub">Upload or paste an HL7 Version 2.x message to extract and interpret healthcare data.</p>
+  <label for="file">Upload HL7 File</label>
+  <input id="file" type="file" accept=".hl7,.txt,.er7,text/plain">
+  <label for="input">Paste HL7 Message</label>
+  <textarea id="input" spellcheck="false" placeholder="Paste HL7 message here..."></textarea>
+  <p class="samples">Try a sample (fictional data): <button type="button" data-sample="cardiac">Cardiac labs (ORU)</button> · <button type="button" data-sample="oru">Chemistry (ORU)</button> · <button type="button" data-sample="adt">Admission (ADT)</button> · <button type="button" data-sample="orm">Order (ORM)</button> · <button type="button" data-sample="bad">Broken message</button></p>
+  <div class="btns"><button class="btn go" id="parse">Parse Message</button><button class="btn clr" id="clear">Clear</button></div>
+  <div id="out" aria-live="polite"></div>
+  <p class="note">Runs entirely in your browser; nothing is uploaded. Do not paste real patient data into any website.</p>
+ </div>
 </main>
-<footer>Python version with tests and JSON output: <span class="mono">hl7_parser.py</span> in the same repository.</footer>
+<div class="foot">HL7 Reader &amp; Parser • Developed by <b>Rayah Mishal Almutairi</b></div>
 
 <script id="core">
 const SEX={M:"Male",F:"Female",O:"Other",U:"Unknown",A:"Ambiguous",N:"Not applicable"};
@@ -98,6 +114,13 @@ function pname(msg,seg,n,rep=0){
   const fam=comp(msg,seg,n,1,rep).split(msg.enc.s)[0];
   return [comp(msg,seg,n,5,rep),comp(msg,seg,n,2,rep),comp(msg,seg,n,3,rep),fam].filter(Boolean).join(" ");
 }
+const TITLES=/^(dr|prof|mr|mrs|ms|miss)\.?$/i;
+function provider(msg,seg,n){
+  let pre=comp(msg,seg,n,6), deg=comp(msg,seg,n,7);
+  if(!pre&&TITLES.test(deg)){pre=deg;deg="";}
+  const name=[pre,comp(msg,seg,n,3),comp(msg,seg,n,2)].filter(Boolean).join(" ");
+  return deg&&name?name+", "+deg:name;
+}
 function interpret(msg){
   const first=n=>msg.segs.find(s=>s.name===n), all=n=>msg.segs.filter(s=>s.name===n);
   const msh=first("MSH"), warnings=[];
@@ -122,16 +145,17 @@ function interpret(msg){
   if(pv1){
     const cls=comp(msg,pv1,2,1); if(cls&&!CLASS[cls]) warnings.push(`PV1-2 '${cls}' is not a recognised patient class.`);
     out.encounter={cls:CLASS[cls]||cls,loc:[1,2,3].map(c=>comp(msg,pv1,3,c)).filter(Boolean).join(" / "),
-      doc:[comp(msg,pv1,7,6),comp(msg,pv1,7,3),comp(msg,pv1,7,2)].filter(Boolean).join(" "),visit:comp(msg,pv1,19,1),
+      doc:provider(msg,pv1,7),visit:comp(msg,pv1,19,1),
       admit:ts(fld(pv1,44)),disch:ts(fld(pv1,45))};
   }
+  out.kin=all("NK1").map(s=>({name:pname(msg,s,2),rel:comp(msg,s,3,2)||comp(msg,s,3,1),phone:comp(msg,s,5,1)}));
   out.allergies=all("AL1").map(s=>({what:comp(msg,s,3,2)||comp(msg,s,3,1),sev:SEV[comp(msg,s,4,1)]||comp(msg,s,4,1),rx:comp(msg,s,5,1)}));
   out.diagnoses=all("DG1").map(s=>({code:comp(msg,s,3,1),text:comp(msg,s,4,1)||comp(msg,s,3,2)}));
   const orders=[]; let cur=null;
   for(const s of msg.segs){
-    if(s.name==="OBR"){cur={service:comp(msg,s,4,2)||comp(msg,s,4,1),at:ts(fld(s,7)),status:STATUS[comp(msg,s,25,1)]||comp(msg,s,25,1),obs:[]};orders.push(cur);}
+    if(s.name==="OBR"){cur={id:comp(msg,s,2,1),service:comp(msg,s,4,2)||comp(msg,s,4,1),at:ts(fld(s,7)),status:STATUS[comp(msg,s,25,1)]||comp(msg,s,25,1),obs:[]};orders.push(cur);}
     else if(s.name==="OBX"){
-      if(!cur){cur={service:"(no OBR segment)",at:"",status:"",obs:[]};orders.push(cur);warnings.push("OBX segment found without a preceding OBR.");}
+      if(!cur){cur={id:"",service:"(no OBR segment)",at:"",status:"",obs:[]};orders.push(cur);warnings.push("OBX segment found without a preceding OBR.");}
       const vt=comp(msg,s,2,1); let value=["CE","CWE"].includes(vt)?(comp(msg,s,5,2)||comp(msg,s,5,1)):unesc(fld(s,5),msg.enc);
       if(vt==="NM"&&value&&!/^[+-]?\d*\.?\d+$/.test(value)) warnings.push(`OBX-5 '${value}' is not numeric but OBX-2 says NM.`);
       const fl=comp(msg,s,8,1);
@@ -140,12 +164,22 @@ function interpret(msg){
   }
   out.orders=orders; return out;
 }
-if(typeof module!=="undefined") module.exports={parseMessage,interpret,ts};
+if(typeof module!=="undefined") module.exports={parseMessage,interpret,ts,provider};
 </script>
-
 <script id="ui">
 if(typeof document!=="undefined"){
 const SAMPLES={
+cardiac:["MSH|^~\\&|LIS|DEMO_CARDIAC|EHR|DEMO_HOSP|202610040830||ORU^R01|MSG000001|P|2.5",
+"PID|1||10024567^^^DEMO^MR||Doe^Sarah^F||19720115|F|||12 Palm St^^Buraydah^^51452||0500000000|||S||987654321",
+"PV1|1|I|CARD^101^01||||12345^Ahmed^Khalid^^^^Dr.||||||||||||VN100001",
+"ORC|RE|ORD10001",
+"OBR|1|ORD10001||Troponin I|||202610040815",
+"OBX|1|NM|Troponin I||5.82|ng/mL|0.00-0.04|H|||F",
+"OBR|2|ORD10002||CK-MB|||202610040820",
+"OBX|2|NM|CK-MB||42|U/L|0-25|H|||F",
+"OBR|3|ORD10003||ECG|||202610040825",
+"OBX|3|TX|ECG||ST-segment elevation in leads II, III, and aVF|||||F",
+"DG1|1||I21.19^Acute STEMI","AL1|1||NKDA","NK1|1|Doe^Mohammed|Father||0500000001"],
 oru:["MSH|^~\\&|LAB|DEMO_HOSP|EHR|DEMO_HOSP|202610040815||ORU^R01^ORU_R01|MSG002|P|2.5.1",
 "PID|1||10001^^^DEMO_HOSP^MR||Doe^Jane^Marie^^^^L~Doe^Janie||19900214|F|||12 Palm St^^Buraydah^QS^51452^SA||0500000000",
 "PV1|1|I|ICU^Room 3^Bed 2||||1234^Smith^Alan^^^Dr||||||||||||V9001^^^DEMO_HOSP",
@@ -157,7 +191,7 @@ oru:["MSH|^~\\&|LAB|DEMO_HOSP|EHR|DEMO_HOSP|202610040815||ORU^R01^ORU_R01|MSG002
 adt:["MSH|^~\\&|HIS|DEMO_HOSP|REG|DEMO_HOSP|202610040800||ADT^A01^ADT_A01|MSG001|P|2.5.1",
 "PID|1||10001^^^DEMO_HOSP^MR||Doe^Jane^Marie^^^^L||19900214|F|||12 Palm St^^Buraydah^QS^51452^SA",
 "PV1|1|I|ICU^Room 3^Bed 2||||1234^Smith^Alan^^^Dr||||||||||||V9001^^^DEMO_HOSP",
-"AL1|1||^Penicillin|SV|Rash","DG1|1||I21.9^Acute myocardial infarction"],
+"AL1|1||^Penicillin|SV|Rash","DG1|1||I21.9^Acute myocardial infarction","NK1|1|Doe^John|SPO^Spouse|||0500000002"],
 orm:["MSH|^~\\&|EHR|DEMO_HOSP|LAB|DEMO_HOSP|202610040815||ORM^O01^ORM_O01|MSG003|P|2.5.1",
 "PID|1||10001^^^DEMO_HOSP^MR||Doe^Jane||19900214|F","PV1|1|O|Clinic 2^Room 4",
 "ORC|NW|PL124||IP","OBR|1|PL124||CBC^Complete blood count^L|||202610041000"],
@@ -165,28 +199,29 @@ bad:["MSH|^~\\&|LAB|DEMO_HOSP|EHR|DEMO_HOSP|20261004||ORU^R01|||2.5.1",
 "PID|1||||Poe^Sam||19900231|X","OBX|1|NM|GLU^Glucose||high|mmol/L"]};
 const $=id=>document.getElementById(id), input=$("input"), out=$("out");
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const kv=rows=>'<div class="kv">'+rows.filter(r=>r[1]!==""&&r[1]!=null).map(r=>`<span>${esc(r[0])}</span><span>${esc(r[1])}</span>`).join("")+"</div>";
+const kv=rows=>{rows=rows.filter(r=>r[1]!==""&&r[1]!=null);return rows.length?'<div class="scroll"><table class="kv">'+rows.map(r=>`<tr><th>${esc(r[0])}</th><td>${esc(r[1])}</td></tr>`).join("")+"</table></div>":"";};
 function render(){
-  let msg; try{msg=parseMessage(input.value);}catch(e){out.innerHTML=`<div class="warn">${esc(e.message)}</div>`;return;}
+  if(!input.value.trim()){out.innerHTML=`<div class="err">Please paste or upload an HL7 message first.</div>`;return;}
+  let msg; try{msg=parseMessage(input.value);}catch(e){out.innerHTML=`<div class="err">${esc(e.message)}</div>`;return;}
   const r=interpret(msg), m=r.message; let h="";
-  const crit=r.orders.flatMap(o=>o.obs).filter(o=>["LL","HH","AA"].includes(o.flag));
+  const obs=r.orders.flatMap(o=>o.obs), crit=obs.filter(o=>["LL","HH","AA"].includes(o.flag));
   if(crit.length) h+=`<div class="crit">Critical results: ${crit.map(o=>esc(o.test+" "+o.value+" "+o.units)).join("; ")}</div>`;
-  h+=`<div class="card"><h3>Message</h3>${kv([["Type",m.type+(m.desc?" – "+m.desc:"")],["Control ID",m.id||"-"],["HL7 version",m.version],["Sent",m.sent],["From",m.from],["To",m.to]])}</div>`;
-  if(r.patient){const p=r.patient;h+=`<div class="card"><h3>Patient</h3>${kv([["Name",p.name],["Also known as",p.aliases.join(", ")],["Sex",p.sex],["Born",p.dob+(p.age!=null?` (age ${p.age})`:"")],["Identifiers",p.ids.map(i=>i.id+(i.type?" ("+i.type+")":"")+(i.auth?" at "+i.auth:"")).join("; ")],["Address",p.address],["Phone",p.phone]])}</div>`;}
-  if(r.encounter){const e=r.encounter;h+=`<div class="card"><h3>Encounter</h3>${kv([["Class",e.cls],["Location",e.loc],["Attending",e.doc],["Visit number",e.visit],["Admitted",e.admit],["Discharged",e.disch]])}</div>`;}
-  if(r.allergies.length) h+=`<div class="card"><h3>Allergies</h3>${r.allergies.map(a=>esc(a.what+" – "+a.sev+(a.rx?" – "+a.rx:""))).join("<br>")}</div>`;
-  if(r.diagnoses.length) h+=`<div class="card"><h3>Diagnoses</h3>${r.diagnoses.map(d=>esc(d.code+" "+d.text)).join("<br>")}</div>`;
-  for(const o of r.orders){
-    h+=`<div class="card"><h3>${esc(o.service)} <span style="color:var(--mute);font-weight:400;font-size:.85rem">${esc([o.status,o.at].filter(Boolean).join(" · "))}</span></h3>`;
-    if(o.obs.length) h+=`<div class="tablewrap"><table><tr><th>Test</th><th class="num">Value</th><th>Reference</th><th>Flag</th></tr>${o.obs.map(b=>`<tr><td>${esc(b.test)}</td><td class="num">${esc(b.value).replace(/\n/g,"<br>")} ${esc(b.units)}</td><td>${esc(b.ref)}</td><td>${b.flag&&b.flag!=="N"?`<span class="tag ${esc(b.flag)}">${esc(b.meaning)}</span>`:""}</td></tr>`).join("")}</table></div>`;
-    h+="</div>";
-  }
-  if(r.warnings.length) h+=`<h2>Warnings</h2>`+r.warnings.map(w=>`<div class="warn">${esc(w)}</div>`).join("");
+  h+=`<h2>Message Information</h2>`+kv([["Message Type",m.type+(m.desc?" – "+m.desc:"")],["Control ID",m.id||"-"],["HL7 Version",m.version],["Sent",m.sent],["From",m.from],["To",m.to]]);
+  if(r.patient){const p=r.patient;h+=`<h2>Patient Information</h2>`+kv([["Name",p.name],["Also Known As",p.aliases.join(", ")],["Sex",p.sex],["Date of Birth",p.dob+(p.age!=null?` (age ${p.age})`:"")],["Patient ID",p.ids.map(i=>i.id+(i.type?" ("+i.type+")":"")+(i.auth?" at "+i.auth:"")).join("; ")],["Address",p.address],["Phone",p.phone]]);}
+  if(r.encounter){const e=r.encounter;h+=`<h2>Visit Information</h2>`+kv([["Patient Class",e.cls],["Assigned Location",e.loc],["Attending Doctor",e.doc],["Visit Number",e.visit],["Admitted",e.admit],["Discharged",e.disch]]);}
+  if(r.kin.length) h+=`<h2>Next of Kin</h2><div class="scroll"><table><tr><th>Name</th><th>Relationship</th><th>Phone</th></tr>${r.kin.map(k=>`<tr><td>${esc(k.name)}</td><td>${esc(k.rel)}</td><td>${esc(k.phone)}</td></tr>`).join("")}</table></div>`;
+  if(r.allergies.length) h+=`<h2>Allergies</h2><div class="scroll"><table><tr><th>Allergen</th><th>Severity</th><th>Reaction</th></tr>${r.allergies.map(a=>`<tr><td>${esc(a.what)}</td><td>${esc(a.sev)}</td><td>${esc(a.rx)}</td></tr>`).join("")}</table></div>`;
+  if(r.diagnoses.length) h+=`<h2>Diagnoses</h2><div class="scroll"><table><tr><th>Code</th><th>Description</th></tr>${r.diagnoses.map(d=>`<tr><td>${esc(d.code)}</td><td>${esc(d.text)}</td></tr>`).join("")}</table></div>`;
+  if(r.orders.length) h+=`<h2>Orders</h2><div class="scroll"><table><tr><th>Order ID</th><th>Test</th><th>Date</th><th>Status</th></tr>${r.orders.map(o=>`<tr><td>${esc(o.id)}</td><td>${esc(o.service)}</td><td>${esc(o.at)}</td><td>${esc(o.status)}</td></tr>`).join("")}</table></div>`;
+  if(obs.length) h+=`<h2>Observations</h2><div class="scroll"><table><tr><th>Observation</th><th>Value</th><th>Units</th><th>Reference</th></tr>${obs.map(b=>`<tr><td>${esc(b.test)}</td><td>${esc(b.value).replace(/\n/g,"<br>")}${b.flag&&b.flag!=="N"?`<span class="tag ${esc(b.flag)}">${esc(b.meaning)}</span>`:""}</td><td>${esc(b.units)}</td><td>${esc(b.ref)}</td></tr>`).join("")}</table></div>`;
+  const has=n=>msg.segs.some(s=>s.name===n), seg=["MSH","PID","PV1"].map(n=>has(n)?`<li>✓ ${n} Segment Found</li>`:`<li class="bad">✗ ${n} Segment Not Found</li>`);
+  h+=`<h2>Validation Report</h2><ul class="valid${r.warnings.length?" hasw":""}">${seg.join("")}${r.warnings.map(w=>`<li class="w">! ${esc(w)}</li>`).join("")}</ul>`;
   out.innerHTML=h;
 }
+$("parse").addEventListener("click",render);
+$("clear").addEventListener("click",()=>{input.value="";$("file").value="";out.innerHTML="";});
+$("file").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{input.value=String(rd.result);render();};rd.readAsText(f);});
 document.querySelectorAll("[data-sample]").forEach(b=>b.addEventListener("click",()=>{input.value=SAMPLES[b.dataset.sample].join("\n");render();}));
-input.addEventListener("input",render);
-input.value=SAMPLES.oru.join("\n"); render();
 }
 </script>
 </body>

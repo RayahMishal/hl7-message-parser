@@ -1,15 +1,16 @@
-# HL7 v2 Message Parser & Interpreter
+# HL7 Message Reader (HL7 v2 Parser & Interpreter)
 
 Turns a raw HL7 v2 message into structured, human-readable clinical information: patient
 demographics, encounter details, lab orders and observations (with abnormal and critical flags),
 allergies, diagnoses and next of kin.
 
-![Interpreter showing a lab result with a critical potassium flag](screenshot.png)
+![HL7 Message Reader showing a cardiac lab result: patient, visit, orders, observations and validation report](screenshot.png)
 
 Two ways to use it:
 
-- **`index.html`** – a browser interpreter. Open the file, or host it free with GitHub Pages.
-  Runs fully client-side, nothing is uploaded.
+- **`index.html`** – the HL7 Message Reader: upload a file or paste a message, press *Parse Message*,
+  and read patient, visit, orders, observations and a validation report. Open the file, or host it
+  free with GitHub Pages. Runs fully client-side, nothing is uploaded.
 - **`hl7_parser.py`** – the same logic as a Python command-line tool and library, with tests.
 
 > Learning project. Sample data is fake. Do not paste real patient data into any website or tool
@@ -40,7 +41,8 @@ OBX without a preceding OBR, and non-numeric values in numeric (NM) results.
 python hl7_parser.py sample_oru.hl7            # readable report
 python hl7_parser.py sample_oru.hl7 --json     # structured JSON
 python hl7_parser.py sample_oru.hl7 --fields   # every field with its HL7 name
-python -m unittest test_hl7_parser -v          # tests
+python -m unittest test_hl7_parser -v          # Python tests (7)
+node test_index.js                             # tests for the browser version (6)
 ```
 
 Example output:
@@ -54,8 +56,8 @@ ORDER     Basic metabolic panel  [Final]
 
 ## Files
 
-`hl7_parser.py` · `index.html` · `test_hl7_parser.py` · `sample_adt.hl7` · `sample_oru.hl7` ·
-`sample_orm.hl7` · `sample_bad.hl7`
+`hl7_parser.py` · `index.html` · `test_hl7_parser.py` · `test_index.js` · `sample_adt.hl7` ·
+`sample_oru.hl7` · `sample_oru_cardiac.hl7` · `sample_orm.hl7` · `sample_bad.hl7`
 
 ## Limits
 

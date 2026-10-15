@@ -32,6 +32,14 @@ class ParserTests(unittest.TestCase):
         self.assertIn("Sample slightly haemolysed\nrepeat advised", obs[3]["value"])  # \.br\ escape
         self.assertIn("CRITICAL RESULTS", report(r))
 
+    def test_cardiac_oru_and_title_in_degree_slot(self):
+        r = load("sample_oru_cardiac.hl7")
+        self.assertEqual(r["encounter"]["attending"], "Dr. Khalid Ahmed")   # 'Dr.' sent in XCN-7
+        self.assertEqual(r["encounter"]["visitNumber"], "VN100001")
+        self.assertEqual([o["placerOrder"] for o in r["orders"]], ["ORD10001", "ORD10002", "ORD10003"])
+        self.assertEqual(r["orders"][0]["observations"][0]["flagMeaning"], "High")
+        self.assertEqual(r["warnings"], [])
+
     def test_order_message(self):
         r = load("sample_orm.hl7")
         o = r["orders"][0]

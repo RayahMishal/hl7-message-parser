@@ -167,11 +167,21 @@ def location(seg, n):
     return " / ".join(bits)
 
 
+TITLES = {"dr", "prof", "mr", "mrs", "ms", "miss"}
+
+
 def provider(seg, n):
+    """XCN: id^family^given^middle^suffix^prefix^degree. A title such as 'Dr.' is accepted in the
+    prefix (XCN-6) or, as many senders put it, in the degree slot (XCN-7); real degrees (MD) follow the name."""
     p = seg.components(n)
     if len(p) < 3:
         return ""
-    return " ".join(x for x in (p[5] if len(p) > 5 else "", p[2], p[1]) if x)
+    prefix = p[5] if len(p) > 5 else ""
+    degree = p[6] if len(p) > 6 else ""
+    if not prefix and degree.rstrip(".").lower() in TITLES:
+        prefix, degree = degree, ""
+    name = " ".join(x for x in (prefix, p[2], p[1]) if x)
+    return f"{name}, {degree}" if degree else name
 
 
 # ---------------------------------------------------------------------------------
